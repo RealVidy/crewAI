@@ -102,7 +102,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
             formatted_answer = self._invoke_loop()
         except AssertionError:
             self._printer.print(
-                content="Agent failed to reach a final answer. This is likely a bug - please report it.",
+                content=f"Agent {self.agent} failed to reach a final answer. This is likely a bug - please report it.",
                 color="red",
             )
             raise
@@ -204,14 +204,14 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
             )
         except Exception as e:
             self._printer.print(
-                content=f"Error during LLM call: {e}",
+                content=f"{self.agent}: Error during LLM call: {e}",
                 color="red",
             )
             raise e
 
         if not answer:
             self._printer.print(
-                content="Received None or empty response from LLM call.",
+                content=f"{self.agent} Received None or empty response from LLM call.",
                 color="red",
             )
             raise ValueError("Invalid response from LLM call - None or empty.")
@@ -281,7 +281,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
 
         if self.iterations > self.log_error_after:
             self._printer.print(
-                content=f"Error parsing LLM output, agent will retry: {e.error}",
+                content=f"{self.agent} Error parsing LLM output, agent will retry: {e.error}",
                 color="red",
             )
 
@@ -615,7 +615,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
 
         if formatted_answer and hasattr(formatted_answer, "text"):
             assistant_message = (
-                formatted_answer.text + f'\n{self._i18n.errors("force_final_answer")}'
+                formatted_answer.text + f"\n{self._i18n.errors('force_final_answer')}"
             )
         else:
             assistant_message = self._i18n.errors("force_final_answer")
