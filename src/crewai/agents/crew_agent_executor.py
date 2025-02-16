@@ -197,27 +197,56 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
 
     def _get_llm_response(self) -> str:
         """Call the LLM and return the response, handling any invalid responses."""
-        try:
-            self._printer.print(content=f"LLM Model: {self.llm.model}")
-            answer = self.llm.call(
-                self.messages,
-                callbacks=self.callbacks,
-            )
-        except Exception as e:
-            self._printer.print(
-                content=f"{self.agent}: Error during LLM call: {e}",
-                color="red",
-            )
-            raise e
+        max_retries = 3
+        current_retry = 0
 
-        if not answer:
-            self._printer.print(
-                content=f"{self.agent} Received None or empty response from LLM call.",
-                color="red",
-            )
-            raise ValueError("Invalid response from LLM call - None or empty.")
+        while current_retry < max_retries:
+            try:
+                self._printer.print(content=f"LLM Model: {self.llm.model}")
+                answer = self.llm.call(
+                    self.messages,
+                    callbacks=self.callbacks,
+                )
 
-        return answer
+                if not answer:
+                    raise ValueError("Invalid response from LLM call - None or empty.")
+
+                return answer
+
+            except Exception as e:
+                current_retry += 1
+                error_message = str(e)
+
+                # Check if it's an OpenAI 500 error for invalid content
+                if (
+                    "Error code: 500" in error_message
+                    and "invalid content" in error_message.lower()
+                ):
+                    if current_retry < max_retries:
+                        # Add clarification to the last message to help guide the model
+                        last_message = self.messages[-1]["content"]
+                        self.messages[-1]["content"] = (
+                            f"{last_message}\n\n"
+                            "Please ensure your response follows the exact format required. "
+                            "Be precise and clear in your answer, avoiding any ambiguous or invalid content."
+                        )
+                        self._printer.print(
+                            content=f"{self.agent}: Retrying with clarified prompt after invalid content error. Attempt {current_retry}/{max_retries}",
+                            color="yellow",
+                        )
+                        continue
+
+                self._printer.print(
+                    content=f"{self.agent}: Error during LLM call: {e}",
+                    color="red",
+                )
+
+                if current_retry >= max_retries:
+                    raise e
+
+        # This should never be reached due to the while loop and exception handling,
+        # but mypy requires an explicit return
+        raise ValueError("Unexpected end of LLM response handling")
 
     def _process_llm_response(self, answer: str) -> Union[AgentAction, AgentFinish]:
         """Process the LLM response and format it into an AgentAction or AgentFinish."""

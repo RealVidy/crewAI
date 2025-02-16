@@ -344,10 +344,33 @@ class LLM:
                     return text_response
 
             except Exception as e:
-                if not LLMContextLengthExceededException(
-                    str(e)
-                )._is_context_limit_error(str(e)):
-                    logging.error(f"LiteLLM call failed: {str(e)}")
+                error_message = str(e)
+
+                # Handle context length errors
+                if LLMContextLengthExceededException(
+                    error_message
+                )._is_context_limit_error(error_message):
+                    raise
+
+                # Handle OpenAI 500 invalid content errors
+                if (
+                    "Error code: 500" in error_message
+                    and "invalid content" in error_message.lower()
+                ):
+                    logging.warning(
+                        "OpenAI returned a 500 error for invalid content. "
+                        "This usually means the response format needs to be more precise. "
+                        "The error will be propagated for retry with a clarified prompt."
+                    )
+                    # Create a custom error message that will help guide the retry logic
+                    raise Exception(
+                        "Error code: 500 - OpenAI invalid content error. "
+                        "The model's response did not meet the expected format requirements. "
+                        "Retrying with more explicit formatting instructions."
+                    )
+
+                # Handle other errors
+                logging.error(f"LiteLLM call failed: {error_message}")
                 raise
 
     def _format_messages_for_provider(
