@@ -198,6 +198,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
     def _get_llm_response(self) -> str:
         """Call the LLM and return the response, handling any invalid responses."""
         try:
+            self._printer.print(content=f"LLM Model: {self.llm.model}")
             answer = self.llm.call(
                 self.messages,
                 callbacks=self.callbacks,
